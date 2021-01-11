@@ -700,5 +700,73 @@ pub fn set_source_tags(tags: Vec<String>) -> bool {
     }
 }
 
+#[cfg(feature = "glean-dynamic")]
+mod sys {
+    use std::sync::Mutex;
+
+    use glean_ffi_sys::GleanSys;
+    use once_cell::sync::OnceCell;
+
+    static GLEAN_SYS: OnceCell<Mutex<GleanSys>> = OnceCell::new();
+
+    pub fn setup_glean(libname: &str) -> Result<(), ::libloading::Error> {
+        let glean = unsafe { GleanSys::new(libname) };
+        match glean {
+            Ok(glean) => {
+                unsafe {
+                    glean.glean_enable_logging();
+                }
+                if GLEAN_SYS.set(Mutex::new(glean)).is_err() {
+                    log::warn!(
+                        "Global Glean-sys object is initialized already. This probably happened concurrently."
+                    )
+                } else {
+                    log::info!("glean-sys setup done. dynamic Glean usable now");
+                }
+                Ok(())
+            }
+            Err(e) => {
+                log::info!(
+                    "glean-sys not loaded. No Glean functionality will be available. Error: {:?}",
+                    e
+                );
+                Err(e)
+            }
+        }
+    }
+
+    /// Gets a reference to the global Glean object.
+    pub fn global_glean_sys() -> Option<&'static Mutex<GleanSys>> {
+        GLEAN_SYS.get()
+    }
+
+    pub fn with_glean<F, R>(f: F) -> R
+    where
+        F: FnOnce(&GleanSys) -> R,
+        R: Default,
+    {
+        log::info!("Getting global glean-sys");
+        let glean = match global_glean_sys() {
+            Some(glean) => glean,
+            None => {
+                let val = R::default();
+                log::warn!("No global glean-sys found. Returning default.");
+                return val;
+            }
+        };
+        log::info!("Got global glean-sys, running user function.");
+
+        let lock = glean.lock().unwrap();
+        f(&lock)
+    }
+}
+
+/// Load the dynamic library and dispatch all metric recordings to that library using the Glean
+/// FFI.
+#[cfg(feature = "glean-dynamic")]
+pub fn setup_dynamic_glean(libname: &str) -> ::std::result::Result<(), ::libloading::Error> {
+    sys::setup_glean(libname)
+}
+
 #[cfg(test)]
 mod test;
