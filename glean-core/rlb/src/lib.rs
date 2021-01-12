@@ -765,7 +765,13 @@ mod sys {
 /// FFI.
 #[cfg(feature = "glean-dynamic")]
 pub fn setup_dynamic_glean(libname: &str) -> ::std::result::Result<(), ::libloading::Error> {
-    sys::setup_glean(libname)
+    sys::setup_glean(libname)?;
+
+    if let Err(err) = dispatcher::flush_init() {
+        log::error!("Unable to flush the preinit queue: {}", err);
+    }
+
+    Ok(())
 }
 
 #[cfg(test)]
