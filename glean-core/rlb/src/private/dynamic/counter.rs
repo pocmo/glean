@@ -9,7 +9,7 @@ use crate::{dispatcher, new_metric};
 
 /// Counter metric wrapper around the FFI implementation
 #[derive(Clone)]
-pub struct CounterMetric(u64);
+pub struct CounterMetric(pub(crate) u64);
 
 impl CounterMetric {
     /// The public constructor used by automatically generated metrics.
@@ -22,6 +22,12 @@ impl CounterMetric {
     pub(crate) fn add_sync(&self, glean: &Glean, amount: i32) {
         let id = self.0;
         crate::sys::with_glean(|glean| unsafe { glean.glean_counter_add(id, amount) })
+    }
+}
+
+impl Default for CounterMetric {
+    fn default() -> Self {
+        panic!("No default value for CounterMetric possible.")
     }
 }
 

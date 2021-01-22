@@ -16,7 +16,7 @@ use crate::{dispatcher, new_metric};
 /// at build time, allowing developers to record values that were previously
 /// registered in the metrics.yaml file.
 #[derive(Clone)]
-pub struct StringMetric(u64);
+pub struct StringMetric(pub(crate) u64);
 
 impl StringMetric {
     /// The public constructor used by automatically generated metrics.
@@ -30,6 +30,12 @@ impl StringMetric {
         let new_value = value.into();
         let value = CString::new(new_value).unwrap();
         crate::sys::with_glean(|glean| unsafe { glean.glean_string_set(id, value.as_ptr()) })
+    }
+}
+
+impl Default for StringMetric {
+    fn default() -> Self {
+        panic!("No default value for StringMetric possible.")
     }
 }
 
